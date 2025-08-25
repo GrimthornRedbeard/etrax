@@ -167,7 +167,7 @@ else
 fi
 
 # Test frontend
-if curl -f -s http://74.208.111.202 > /dev/null 2>&1; then
+if curl -f -s http://etrax.app > /dev/null 2>&1; then
     print_status "✅ Frontend is accessible"
 else
     print_warning "⚠️  Frontend accessibility check failed"
@@ -177,9 +177,9 @@ fi
 print_status "🎉 ETrax deployment complete!"
 echo
 echo "📋 Access URLs:"
-echo "- Application: http://74.208.111.202"
-echo "- API Health: http://74.208.111.202:8080/api/health" 
-echo "- API Docs: http://74.208.111.202:8080/api-docs"
+echo "- Application: http://etrax.app"
+echo "- API Health: http://etrax.app:8080/api/health" 
+echo "- API Docs: http://etrax.app:8080/api-docs"
 echo
 echo "📊 Management:"
 echo "- PM2 Status: ssh -i ~/.ssh/etrax_ed25519 etrax@74.208.111.202 'npx pm2 status'"
