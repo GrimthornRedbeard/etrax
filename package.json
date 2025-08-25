@@ -1,0 +1,63 @@
+{
+  "name": "etrax",
+  "version": "1.0.0",
+  "description": "Electronic/Education Tracking - Sports Equipment Inventory Management System",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "shared"
+  ],
+  "scripts": {
+    "setup": "npm install && npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "cd backend && npm install",
+    "setup:frontend": "cd frontend && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "build:shared": "cd shared && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm run test",
+    "test:frontend": "cd frontend && npm run test",
+    "test:e2e": "playwright test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "prepare": "husky install",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "deploy": "npm run deploy:check && npm run deploy:run",
+    "deploy:check": "node scripts/deploy-check.js",
+    "deploy:run": "node scripts/deploy.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.4.2",
+    "playwright": "^1.49.1"
+  },
+  "engines": {
+    "node": ">=23.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GrimthornRedbeard/etrax.git"
+  },
+  "keywords": [
+    "inventory",
+    "sports",
+    "equipment",
+    "qr-code",
+    "pwa",
+    "multi-tenant",
+    "saas"
+  ],
+  "author": "ETrax Team",
+  "license": "UNLICENSED"
+}

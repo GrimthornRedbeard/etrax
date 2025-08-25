@@ -1,0 +1,596 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================
+// Multi-Tenant Models
+// =====================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  type        OrganizationType
+  domain      String?  @unique
+  subdomain   String   @unique
+  parentId    String?
+  parent      Organization? @relation("OrganizationHierarchy", fields: [parentId], references: [id])
+  children    Organization[] @relation("OrganizationHierarchy")
+  
+  // Branding
+  logoUrl     String?
+  primaryColor String?
+  secondaryColor String?
+  website     String?
+  
+  // Settings
+  settings    Json     @default("{}")
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  schools     School[]
+  users       User[]
+  scheduledReports ScheduledReport[]
+  
+  @@map("organizations")
+}
+
+enum OrganizationType {
+  STATE
+  DISTRICT
+  SCHOOL
+  COUNTY
+}
+
+model School {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name           String
+  code           String   @unique
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  phone          String?
+  email          String?
+  website        String?
+  
+  // School specific settings
+  mascot         String?
+  colors         Json?    // Array of school colors
+  sportPrograms  Json?    // Configuration for sports programs
+  
+  // Equipment settings
+  qrCodePrefix   String   @default("ETX")
+  defaultStatus  EquipmentStatus @default(GREEN)
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  users          User[]
+  equipment      Equipment[]
+  categories     Category[]
+  locations      Location[]
+  transactions   Transaction[]
+  reports        Report[]
+  scheduledReports ScheduledReport[]
+  notifications  Notification[]
+  
+  @@map("schools")
+}
+
+// =====================
+// User Management
+// =====================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  firstName      String
+  lastName       String
+  phone          String?
+  avatar         String?
+  
+  // Multi-tenant
+  schoolId       String?
+  school         School?  @relation(fields: [schoolId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  // Role and permissions
+  role           UserRole @default(USER)
+  permissions    Json     @default("[]")
+  
+  // Authentication
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  emailVerified  Boolean  @default(false)
+  emailVerifiedAt DateTime?
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  transactions   Transaction[]
+  reports        Report[]
+  scheduledReports ScheduledReport[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  SCHOOL_ADMIN
+  COACH
+  EQUIPMENT_MANAGER
+  USER
+  STUDENT
+  PARENT
+}
+
+// =====================
+// Equipment Management
+// =====================
+
+model Equipment {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  // Basic info
+  name          String
+  description   String?
+  serialNumber  String?
+  model         String?
+  brand         String?
+  
+  // QR Code
+  qrCode        String   @unique
+  qrCodeData    Json?    // Additional QR code metadata
+  
+  // Categorization
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  
+  // Location and assignment
+  locationId    String?
+  location      Location? @relation(fields: [locationId], references: [id])
+  assignedTo    String?  // Student/Player ID or name
+  
+  // Status and condition
+  status        EquipmentStatus @default(GREEN)
+  condition     EquipmentCondition @default(GOOD)
+  notes         String?
+  
+  // Lifecycle
+  purchaseDate  DateTime?
+  purchasePrice Decimal?
+  warrantyExpiry DateTime?
+  retirementDate DateTime?
+  
+  // Maintenance
+  lastInspection DateTime?
+  nextInspection DateTime?
+  
+  // Metadata
+  size          String?
+  weight        Decimal?
+  color         String?
+  customFields  Json?    // Flexible additional fields
+  
+  // Images
+  images        String[] // Array of image URLs
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  transactions  Transaction[]
+  maintenanceRecords MaintenanceRecord[]
+  
+  @@map("equipment")
+}
+
+enum EquipmentStatus {
+  GREEN      // Available/Good condition
+  YELLOW     // Needs attention/Minor issues
+  RED        // Out of service/Major issues
+  RETIRED    // End of life
+  LOST       // Missing/Lost
+}
+
+enum EquipmentCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  icon        String?  // Icon identifier
+  color       String?  // Category color
+  sport       String?  // Associated sport
+  
+  // Hierarchy
+  parentId    String?
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  
+  // Settings
+  requiresSize     Boolean @default(false)
+  requiresAssignment Boolean @default(false)
+  inspectionInterval Int?    // Days between inspections
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  equipment   Equipment[]
+  
+  @@unique([schoolId, name])
+  @@map("categories")
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  type        LocationType
+  
+  // Physical location
+  building    String?
+  room        String?
+  coordinates Json?    // GPS coordinates if needed
+  
+  // Hierarchy
+  parentId    String?
+  parent      Location? @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children    Location[] @relation("LocationHierarchy")
+  
+  // Settings
+  capacity    Int?
+  isSecure    Boolean @default(false)
+  accessCode  String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  equipment        Equipment[]
+  fromTransactions Transaction[] @relation("FromLocation")
+  toTransactions   Transaction[] @relation("ToLocation")
+  
+  @@unique([schoolId, name])
+  @@map("locations")
+}
+
+enum LocationType {
+  ROOM
+  BUILDING
+  FIELD
+  GYM
+  STORAGE
+  LOCKER_ROOM
+  OTHER
+}
+
+// =====================
+// Transaction System
+// =====================
+
+model Transaction {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  type        TransactionType
+  
+  // Location changes
+  fromLocationId String?
+  fromLocation   Location? @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocationId   String?
+  toLocation     Location? @relation("ToLocation", fields: [toLocationId], references: [id])
+  
+  // Status changes
+  previousStatus EquipmentStatus?
+  newStatus      EquipmentStatus?
+  
+  // Assignment changes
+  previousAssignee String?
+  newAssignee      String?
+  
+  // Voice command data
+  voiceCommand     String?
+  voiceConfidence  Decimal?
+  
+  // Additional data
+  notes           String?
+  metadata        Json?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  
+  @@map("transactions")
+}
+
+enum TransactionType {
+  CHECK_OUT
+  CHECK_IN
+  STATUS_CHANGE
+  ASSIGNMENT_CHANGE
+  LOCATION_CHANGE
+  INSPECTION
+  MAINTENANCE
+  BULK_OPERATION
+  VOICE_COMMAND
+}
+
+// =====================
+// Maintenance System
+// =====================
+
+model MaintenanceRecord {
+  id          String   @id @default(cuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  type        MaintenanceType
+  description String
+  cost        Decimal?
+  
+  performedBy String?
+  performedAt DateTime
+  
+  // Before/After condition
+  conditionBefore EquipmentCondition
+  conditionAfter  EquipmentCondition
+  
+  // Parts and materials
+  partsUsed       String?
+  materialsCost   Decimal?
+  laborHours      Decimal?
+  
+  // Images and documentation
+  beforeImages    String[]
+  afterImages     String[]
+  invoiceUrl      String?
+  
+  // Next maintenance
+  nextMaintenanceDate DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("maintenance_records")
+}
+
+enum MaintenanceType {
+  ROUTINE
+  REPAIR
+  CLEANING
+  INSPECTION
+  REPLACEMENT
+  UPGRADE
+  RECALL
+}
+
+// =====================
+// Reporting System
+// =====================
+
+model Report {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  title       String
+  description String?
+  type        ReportType
+  
+  // Report data
+  data        Json
+  filters     Json?
+  
+  // Sharing and visibility
+  isPublic    Boolean  @default(false)
+  sharedWith  String[] // Array of user IDs
+  
+  // Scheduling
+  isScheduled Boolean  @default(false)
+  schedule    Json?    // Cron-like schedule
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("reports")
+}
+
+enum ReportType {
+  INVENTORY
+  MAINTENANCE
+  UTILIZATION
+  COST_ANALYSIS
+  AUDIT
+  COMPLIANCE
+  CUSTOM
+}
+
+model ScheduledReport {
+  id             String   @id @default(cuid())
+  schoolId       String?
+  school         School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name           String
+  reportType     String
+  filters        Json     @default("{}")
+  schedule       Json     // { frequency, dayOfWeek, dayOfMonth, hour }
+  recipients     String[] // Array of email addresses
+  format         String   @default("pdf")
+  
+  isActive       Boolean  @default(true)
+  lastRun        DateTime?
+  nextRun        DateTime?
+  
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@map("scheduled_reports")
+}
+
+// =====================
+// Communication System
+// =====================
+
+model Notification {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  title       String
+  message     String
+  type        NotificationType
+  priority    NotificationPriority @default(NORMAL)
+  
+  // Delivery channels
+  channels    NotificationChannel[]
+  
+  // Equipment context
+  equipmentId String?
+  
+  // Status
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  
+  // Delivery status
+  emailSent   Boolean  @default(false)
+  smsSent     Boolean  @default(false)
+  pushSent    Boolean  @default(false)
+  
+  // Metadata
+  metadata    Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("notifications")
+}
+
+enum NotificationType {
+  EQUIPMENT_ALERT
+  MAINTENANCE_DUE
+  EQUIPMENT_ASSIGNED
+  EQUIPMENT_OVERDUE
+  SYSTEM_UPDATE
+  SECURITY_ALERT
+  CUSTOM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+// =====================
+// Audit System
+// =====================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  action      String
+  resource    String
+  resourceId  String?
+  
+  // Changes tracking
+  oldValues   Json?
+  newValues   Json?
+  
+  // Context
+  ipAddress   String?
+  userAgent   String?
+  sessionId   String?
+  
+  // Metadata
+  metadata    Json?
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+// =====================
+// System Tables
+// =====================
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  isPublic    Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_settings")
+}
+
