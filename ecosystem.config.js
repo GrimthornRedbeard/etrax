@@ -1,8 +1,8 @@
 module.exports = {
   apps: [{
     name: 'etrax-backend',
-    script: './backend/dist/index.js',
-    cwd: '/var/www/etrax',
+    script: './dist/index.js',
+    cwd: '/var/www/vhosts/etrax.app/backend',
     instances: 2,
     exec_mode: 'cluster',
     env: {
