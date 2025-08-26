@@ -5,6 +5,7 @@ import { Suspense, lazy } from 'react';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const AuthConfig = lazy(() => import('./pages/admin/AuthConfig'));
+const Equipment = lazy(() => import('./pages/Equipment'));
 
 // Simple Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -49,6 +50,7 @@ const AppLayout = () => {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/equipment" element={<Equipment />} />
           <Route path="/admin/auth" element={<AuthConfig />} />
           <Route path="/" element={<Dashboard />} />
         </Routes>
