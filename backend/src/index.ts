@@ -19,18 +19,22 @@ import { QRCodeService } from '@/services/qr';
 
 // Import routes
 import authRoutes from '@/routes/auth';
+import adminRoutes from '@/routes/admin';
 import equipmentRoutes from '@/routes/equipment';
-import schoolRoutes from '@/routes/school';
 import userRoutes from '@/routes/user';
 import categoryRoutes from '@/routes/category';
 import locationRoutes from '@/routes/location';
 import transactionRoutes from '@/routes/transaction';
 import reportRoutes from '@/routes/report';
-import notificationRoutes from '@/routes/notification';
 import qrRoutes from '@/routes/qr';
 import voiceRoutes from '@/routes/voice';
-import bulkRoutes from '@/routes/bulk';
 import healthRoutes from '@/routes/health';
+
+// Import authentication services for initialization
+import { OAuth2Service } from './services/auth/OAuth2Service';
+import { SAMLService } from './services/auth/SAMLService';
+import { JWTService } from './services/auth/JWTService';
+import passport from 'passport';
 
 // Initialize Express app
 const app = express();
@@ -98,19 +102,20 @@ app.use(requestLogger);
 // Health check endpoints
 app.use('/health', healthRoutes);
 
+// Initialize Passport for authentication
+app.use(passport.initialize());
+
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/equipment', equipmentRoutes);
-app.use('/api/schools', authMiddleware, schoolRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/categories', authMiddleware, categoryRoutes);
 app.use('/api/locations', authMiddleware, locationRoutes);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/reports', authMiddleware, reportRoutes);
-app.use('/api/notifications', authMiddleware, notificationRoutes);
 app.use('/api/qr', authMiddleware, qrRoutes);
 app.use('/api/voice', authMiddleware, voiceRoutes);
-app.use('/api/bulk', authMiddleware, bulkRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -178,6 +183,19 @@ server.listen(PORT, async () => {
   
   // Initialize services
   try {
+    // Initialize authentication services
+    OAuth2Service.initialize();
+    logger.info('🔐 OAuth2 service initialized');
+    
+    await SAMLService.initialize();
+    logger.info('🏢 SAML service initialized');
+    
+    // Start session cleanup scheduler
+    setInterval(() => {
+      JWTService.cleanupExpiredSessions();
+    }, 60 * 60 * 1000); // Every hour
+    logger.info('🧹 Session cleanup scheduler started');
+    
     await scheduler.initialize();
     scheduler.start();
     logger.info('⏰ Scheduler initialized and started');
