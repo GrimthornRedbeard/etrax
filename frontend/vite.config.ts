@@ -11,32 +11,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\./i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
-              cacheKeyWillBeUsed: async ({ request, mode }) => {
-                return `${request.url}?${mode}`;
-              },
-            },
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-              },
-            },
-          },
-        ],
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'ETrax - Equipment Tracking',
         short_name: 'ETrax',
@@ -44,7 +19,6 @@ export default defineConfig({
         theme_color: '#1f2937',
         background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
@@ -53,46 +27,10 @@ export default defineConfig({
             sizes: '192x192',
             type: 'image/png',
           },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ],
-        categories: ['productivity', 'utilities'],
-        shortcuts: [
-          {
-            name: 'Scan QR Code',
-            short_name: 'Scan',
-            url: '/scan',
-            icons: [
-              {
-                src: 'pwa-192x192.png',
-                sizes: '192x192',
-              },
-            ],
-          },
-          {
-            name: 'Add Equipment',
-            short_name: 'Add',
-            url: '/equipment/add',
-            icons: [
-              {
-                src: 'pwa-192x192.png',
-                sizes: '192x192',
-              },
-            ],
-          },
         ],
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
     }),
   ],

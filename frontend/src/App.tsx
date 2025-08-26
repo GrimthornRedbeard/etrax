@@ -1,52 +1,70 @@
 import { Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 
-import { Layout } from './components/layout/Layout';
-import { LoadingSpinner } from './components/ui/LoadingSpinner';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-
-// Lazy load pages for better performance
+// Simple components to avoid complex loading
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Equipment = lazy(() => import('./pages/Equipment'));
-const EquipmentDetail = lazy(() => import('./pages/EquipmentDetail'));
-const AddEquipment = lazy(() => import('./pages/AddEquipment'));
-const Scan = lazy(() => import('./pages/Scan'));
-const Voice = lazy(() => import('./pages/Voice'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/auth/Login'));
-const Register = lazy(() => import('./pages/auth/Register'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+const AuthConfig = lazy(() => import('./pages/admin/AuthConfig'));
+
+// Simple Protected Route component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    return <Login />;
+  }
+  return <>{children}</>;
+};
+
+// Simple Layout component
+const AppLayout = () => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    window.location.href = '/';
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900">ETrax</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                <a href="/app/admin/auth" className="text-blue-600 hover:text-blue-800">
+                  Admin Panel
+                </a>
+              )}
+              <span className="text-gray-700">Welcome, {user?.name || user?.email}</span>
+              <button onClick={handleLogout} className="text-red-600 hover:text-red-800">
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin/auth" element={<AuthConfig />} />
+          <Route path="/" element={<Dashboard />} />
+        </Routes>
+      </main>
+    </div>
+  );
+};
 
 const AppRoutes = () => (
-  <Suspense fallback={<LoadingSpinner />}>
+  <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* Root route for unauthenticated users */}
+      <Route path="/" element={<Login />} />
       
-      {/* Protected routes */}
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/equipment" element={<Equipment />} />
-                <Route path="/equipment/:id" element={<EquipmentDetail />} />
-                <Route path="/equipment/add" element={<AddEquipment />} />
-                <Route path="/scan" element={<Scan />} />
-                <Route path="/voice" element={<Voice />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+      {/* Protected app routes */}
+      <Route path="/app/*" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
     </Routes>
   </Suspense>
 );
