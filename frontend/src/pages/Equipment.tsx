@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
+import EquipmentForm from '../components/EquipmentForm';
 
 interface Equipment {
   id: string;
@@ -20,6 +22,11 @@ const Equipment: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [qrCodeUrl, setQRCodeUrl] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
   useEffect(() => {
     fetchEquipment();
@@ -117,6 +124,54 @@ const Equipment: React.FC = () => {
     return matchesFilter && matchesSearch;
   });
 
+  const generateQRCode = async (equipment: Equipment) => {
+    try {
+      const qrData = JSON.stringify({
+        id: equipment.id,
+        name: equipment.name,
+        serialNumber: equipment.serialNumber,
+        qrCode: equipment.qrCode
+      });
+      
+      const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      setQRCodeUrl(qrCodeDataUrl);
+      setSelectedEquipment(equipment);
+      setShowQRModal(true);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      alert('Failed to generate QR code');
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (!selectedEquipment || !qrCodeUrl) return;
+    
+    const link = document.createElement('a');
+    link.download = `QR-${selectedEquipment.qrCode}.png`;
+    link.href = qrCodeUrl;
+    link.click();
+  };
+
+  const handleSaveEquipment = (equipmentData: Equipment) => {
+    setShowAddForm(false);
+    setShowEditForm(false);
+    setSelectedEquipment(null);
+    fetchEquipment(); // Refresh the list
+  };
+
+  const handleEditEquipment = (equipment: Equipment) => {
+    setSelectedEquipment(equipment);
+    setShowEditForm(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'AVAILABLE': return 'bg-green-100 text-green-800';
@@ -134,7 +189,10 @@ const Equipment: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Equipment Management</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+        <button 
+          onClick={() => setShowAddForm(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
           Add Equipment
         </button>
       </div>
@@ -202,32 +260,44 @@ const Equipment: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                {item.status === 'AVAILABLE' ? (
-                  <button
-                    onClick={() => handleCheckOut(item.id, item.name)}
-                    className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-sm"
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  {item.status === 'AVAILABLE' ? (
+                    <button
+                      onClick={() => handleCheckOut(item.id, item.name)}
+                      className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-sm"
+                    >
+                      Check Out
+                    </button>
+                  ) : item.status === 'CHECKED_OUT' ? (
+                    <button
+                      onClick={() => handleCheckIn(item.id, item.name)}
+                      className="flex-1 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                    >
+                      Check In
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed text-sm"
+                    >
+                      In Maintenance
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => generateQRCode(item)}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
                   >
-                    Check Out
+                    QR Code
                   </button>
-                ) : item.status === 'CHECKED_OUT' ? (
-                  <button
-                    onClick={() => handleCheckIn(item.id, item.name)}
-                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                  >
-                    Check In
-                  </button>
-                ) : (
-                  <button
-                    disabled
-                    className="flex-1 px-3 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed text-sm"
-                  >
-                    In Maintenance
-                  </button>
-                )}
+                </div>
                 
-                <button className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-                  Details
+                <button
+                  onClick={() => handleEditEquipment(item)}
+                  className="w-full px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+                >
+                  Edit Equipment
                 </button>
               </div>
             </div>
@@ -239,6 +309,75 @@ const Equipment: React.FC = () => {
         <div className="text-center py-8">
           <p className="text-gray-500">No equipment found matching your criteria.</p>
         </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && selectedEquipment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">QR Code</h3>
+              <button 
+                onClick={() => setShowQRModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="text-center">
+              <div className="mb-4">
+                <h4 className="font-medium text-gray-900">{selectedEquipment.name}</h4>
+                <p className="text-sm text-gray-600">Serial: {selectedEquipment.serialNumber}</p>
+                <p className="text-sm text-gray-600">Code: {selectedEquipment.qrCode}</p>
+              </div>
+              
+              {qrCodeUrl && (
+                <div className="mb-4">
+                  <img 
+                    src={qrCodeUrl} 
+                    alt="QR Code" 
+                    className="mx-auto border rounded"
+                  />
+                </div>
+              )}
+              
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={downloadQRCode}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Download PNG
+                </button>
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Equipment Form Modals */}
+      {showAddForm && (
+        <EquipmentForm
+          onSave={handleSaveEquipment}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {showEditForm && selectedEquipment && (
+        <EquipmentForm
+          equipment={selectedEquipment}
+          onSave={handleSaveEquipment}
+          onCancel={() => {
+            setShowEditForm(false);
+            setSelectedEquipment(null);
+          }}
+        />
       )}
     </div>
   );
